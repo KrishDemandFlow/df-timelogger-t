@@ -27,7 +27,7 @@ export default function RootLayout({
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
 <link rel="manifest" href="/site.webmanifest" />
       </head>
-      <body>
+      <body className={inter.className}>
         <AuthProvider>
           <header className="border-b">
             <div className="container max-w-8xl mx-auto flex h-16 items-center px-4">

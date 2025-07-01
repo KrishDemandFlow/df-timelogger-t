@@ -1,4 +1,4 @@
-import { createRouteHandlerClient } from '@supabase/ssr';
+import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
@@ -13,7 +13,25 @@ const clientSchema = z.object({
 });
 
 export async function PUT(request: Request, { params }: { params: { id: string } }) {
-  const supabase = createRouteHandlerClient<Database>({ cookies });
+  const cookieStore = cookies();
+  const supabase = createServerClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value;
+        },
+        set(name: string, value: string, options: any) {
+          cookieStore.set({ name, value, ...options });
+        },
+        remove(name: string, options: any) {
+          cookieStore.set({ name, value: '', ...options });
+        },
+      },
+    }
+  );
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -32,7 +50,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   const { data, error } = await supabase
     .from('Clients')
     .update(validation.data)
-    .eq('id', params.id)
+    .eq('id', parseInt(params.id))
     .select()
     .single();
 
@@ -45,7 +63,25 @@ export async function PUT(request: Request, { params }: { params: { id: string }
 }
 
 export async function DELETE(request: Request, { params }: { params: { id: string } }) {
-  const supabase = createRouteHandlerClient<Database>({ cookies });
+  const cookieStore = cookies();
+  const supabase = createServerClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value;
+        },
+        set(name: string, value: string, options: any) {
+          cookieStore.set({ name, value, ...options });
+        },
+        remove(name: string, options: any) {
+          cookieStore.set({ name, value: '', ...options });
+        },
+      },
+    }
+  );
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -57,7 +93,7 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
   const { error } = await supabase
     .from('Clients')
     .delete()
-    .eq('id', params.id);
+    .eq('id', parseInt(params.id));
 
   if (error) {
     console.error('Error deleting client:', error);

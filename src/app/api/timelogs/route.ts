@@ -1,60 +1,48 @@
-import { createRouteHandlerClient } from '@supabase/ssr';
+import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
 import type { Database } from '@/lib/supabase/database.types';
 
-export async function GET(request: Request) {
-  const supabase = createRouteHandlerClient<Database>({ cookies });
+export async function GET() {
+  const cookieStore = cookies();
+  const supabase = createServerClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value;
+        },
+        set(name: string, value: string, options: any) {
+          cookieStore.set({ name, value, ...options });
+        },
+        remove(name: string, options: any) {
+          cookieStore.set({ name, value: '', ...options });
+        },
+      },
+    }
+  );
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return new NextResponse(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return new NextResponse(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
   }
 
-  const { searchParams } = new URL(request.url);
-  const clientId = searchParams.get('client_id');
-  const startDate = searchParams.get('start_date');
-  const endDate = searchParams.get('end_date');
-
-  let query = supabase
+  const { data, error } = await supabase
     .from('TimeLogs')
     .select(`
       *,
-      Clients (
-        id,
-        name,
-        clickup_list_id
-      )
+      Clients(name, id)
     `)
     .order('start_time', { ascending: false });
 
-  // Apply filters if provided
-  if (clientId) {
-    query = query.eq('client_id', parseInt(clientId));
-  }
-
-  if (startDate) {
-    query = query.gte('start_time', startDate);
-  }
-
-  if (endDate) {
-    query = query.lte('start_time', endDate);
-  }
-
-  const { data, error } = await query;
-
   if (error) {
     console.error('Error fetching time logs:', error);
-    return new NextResponse(JSON.stringify({ error: 'Failed to fetch time logs' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return new NextResponse(JSON.stringify({ error: 'Failed to fetch time logs' }), { status: 500 });
   }
 
   return NextResponse.json(data);
