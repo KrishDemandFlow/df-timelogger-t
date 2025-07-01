@@ -325,7 +325,7 @@ export default async function DebugPage() {
                 return (
                   <div key={client.id} className={`p-2 rounded mb-2 ${isValid ? 'bg-green-100' : 'bg-red-100'}`}>
                     <p><strong>{client.name}:</strong></p>
-                    <p>List ID: "{client.clickup_list_id}" {isValid ? '✅ Valid' : '❌ Invalid - must be a positive integer'}</p>
+                    <p>List ID: &quot;{client.clickup_list_id}&quot; {isValid ? '✅ Valid' : '❌ Invalid - must be a positive integer'}</p>
                     {isValid && <p>Parsed as: {listId}</p>}
                   </div>
                 );

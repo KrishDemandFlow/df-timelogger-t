@@ -103,7 +103,7 @@ export default function CycleSelector({
     }
     // For custom, always show label, not range.
     return 'Custom Range';
-  }, [cycle, dateRange.from, dateRange.to]);
+  }, [cycle]);
 
   // After initializing state
   const today = new Date();
