@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { useRouter } from 'next/navigation'
 
 interface LoginFormProps {
   onSuccess?: () => void
@@ -16,7 +15,6 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isSignUp, setIsSignUp] = useState(false)
-  const router = useRouter()
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -41,12 +39,10 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
         if (data.user && !data.user.email_confirmed_at) {
           setError('Please check your email and click the confirmation link to complete registration.')
         } else {
-          // Wait for the auth state to update before calling onSuccess
+          // Wait for the auth state to update, then reload
           const { data: { session } } = await supabase.auth.getSession()
           if (session) {
-            router.refresh()
-            router.replace('/')
-            onSuccess?.()
+            window.location.reload()
           }
         }
       } else {
@@ -58,8 +54,8 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
 
         if (error) throw error
 
-        // Wait for the auth state to update before navigating
-        // This prevents the race condition where navigation happens before auth state updates
+        // Wait for the auth state to update, then reload the page
+        // This ensures middleware properly detects the authenticated state
         await new Promise((resolve) => {
           const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
             if (event === 'SIGNED_IN' && session) {
@@ -75,10 +71,8 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
           }, 1000)
         })
 
-        // Navigate directly from here to ensure proper timing
-        router.refresh()
-        router.replace('/')
-        onSuccess?.()
+        // Simple page reload - most reliable approach
+        window.location.reload()
       }
     } catch (error: any) {
       setError(error.message || 'An error occurred during authentication')
