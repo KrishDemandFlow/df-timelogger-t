@@ -221,7 +221,7 @@ function ClientCard({ client, usersMap, includeLeadTime, isPartOfDuplicate, dupl
                       <Download className="h-4 w-4" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="min-w-[12rem] w-[12.5rem] p-1">
+                  <PopoverContent className="min-w-[12.5rem] w-[12.5rem] p-1">
                     <div className="flex flex-col gap-1">
                       <button
                         className="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none hover:bg-accent hover:text-accent-foreground gap-2"
@@ -269,7 +269,7 @@ function ClientCard({ client, usersMap, includeLeadTime, isPartOfDuplicate, dupl
                         <Download className="h-4 w-4" /> Export as CSV
                       </button>
                       <button
-                        className="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none hover:bg-accent hover:text-accent-foreground gap-2"
+                        className="relative min-w-[195px] flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none hover:bg-accent hover:text-accent-foreground gap-2"
                         onClick={() => {
                           const usedHoursVal = includeLeadTime ? client.usedHoursWithLeadTime : client.usedHoursWithoutLeadTime;
                           const utilisedPct = (usedHoursVal / client.allocatedHours) * 100;

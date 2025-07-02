@@ -78,9 +78,20 @@ async function getClientTimeData(cycle: CycleOption, customStart?: string, custo
       const previousMonth = subMonths(currentStart, 1);
       ({ start: cycleStart, end: cycleEnd } = getBillingCycleDates(client.billing_cycle_start_day, previousMonth));
     } else {
-      // custom
-      cycleStart = customStart ? new Date(customStart) : new Date();
-      cycleEnd = customEnd ? new Date(customEnd) : new Date();
+      // custom - parse dates in local time to avoid timezone issues
+      if (customStart) {
+        const [year, month, day] = customStart.split('-').map(Number);
+        cycleStart = new Date(year, month - 1, day); // month is 0-indexed
+      } else {
+        cycleStart = new Date();
+      }
+      
+      if (customEnd) {
+        const [year, month, day] = customEnd.split('-').map(Number);
+        cycleEnd = new Date(year, month - 1, day); // month is 0-indexed
+      } else {
+        cycleEnd = new Date();
+      }
     }
 
     // Normalize to start/end of day
