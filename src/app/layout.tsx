@@ -40,7 +40,20 @@ export default function RootLayout({
 </Link>
                 </h1>
               </div>
-              <div className="ml-auto">
+              <div className="ml-auto flex items-center gap-3">
+                <Button 
+                  variant="ghost" 
+                  asChild
+                  className="text-gray-700 font-normal"
+                >
+                  <Link 
+                    href="https://demandflow.notion.site/How-to-use-Clickup-Timelogger-tool-2247c5c170c880a9b45ff1c3bfd3ce3b?source=copy_link"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Instructions
+                  </Link>
+                </Button>
                 <UserMenu />
               </div>
             </div>
