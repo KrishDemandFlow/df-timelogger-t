@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { useRouter } from 'next/navigation'
 
 interface LoginFormProps {
   onSuccess?: () => void
@@ -15,6 +16,7 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isSignUp, setIsSignUp] = useState(false)
+  const router = useRouter()
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -42,6 +44,8 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
           // Wait for the auth state to update before calling onSuccess
           const { data: { session } } = await supabase.auth.getSession()
           if (session) {
+            router.refresh()
+            router.replace('/')
             onSuccess?.()
           }
         }
@@ -71,6 +75,9 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
           }, 1000)
         })
 
+        // Navigate directly from here to ensure proper timing
+        router.refresh()
+        router.replace('/')
         onSuccess?.()
       }
     } catch (error: any) {
