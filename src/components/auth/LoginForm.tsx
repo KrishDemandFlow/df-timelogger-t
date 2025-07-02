@@ -39,7 +39,11 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
         if (data.user && !data.user.email_confirmed_at) {
           setError('Please check your email and click the confirmation link to complete registration.')
         } else {
-          onSuccess?.()
+          // Wait for the auth state to update before calling onSuccess
+          const { data: { session } } = await supabase.auth.getSession()
+          if (session) {
+            onSuccess?.()
+          }
         }
       } else {
         // Sign in existing user
@@ -49,6 +53,23 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
         })
 
         if (error) throw error
+
+        // Wait for the auth state to update before navigating
+        // This prevents the race condition where navigation happens before auth state updates
+        await new Promise((resolve) => {
+          const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            if (event === 'SIGNED_IN' && session) {
+              subscription.unsubscribe()
+              resolve(undefined)
+            }
+          })
+          
+          // Fallback: if onAuthStateChange doesn't fire within 1 second, proceed anyway
+          setTimeout(() => {
+            subscription.unsubscribe()
+            resolve(undefined)
+          }, 1000)
+        })
 
         onSuccess?.()
       }
