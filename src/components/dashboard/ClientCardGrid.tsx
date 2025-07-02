@@ -109,7 +109,7 @@ function ClientCard({ client, usersMap, includeLeadTime, isPartOfDuplicate, dupl
                           <span className="text-gray-600">Cycle start day</span>
                           <div className="text-right">
                             <span className="font-semibold text-gray-900 block">
-                              {new Date(client.cycleStart).toLocaleDateString('en-US', { day: 'numeric' })}
+                              {client.billing_cycle_start_day}
                             </span>
                             <span className="text-xs text-gray-500">every month</span>
                           </div>
