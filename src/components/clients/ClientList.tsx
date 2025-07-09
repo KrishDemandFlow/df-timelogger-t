@@ -108,7 +108,7 @@ export default function ClientList({ initialClients }: ClientListProps) {
             {filteredClients.length} of {clients.length} clients
             {searchTerm && (
               <span className="ml-2">
-                matching "{searchTerm}"
+                matching &quot;{searchTerm}&quot;
               </span>
             )}
           </>

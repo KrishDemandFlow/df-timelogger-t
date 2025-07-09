@@ -190,7 +190,7 @@ export default function ClientForm({ initialData, onSuccess }: ClientFormProps) 
               </p>
             )}
             <p className="text-sm text-gray-500">
-              The Internal ClickUp List ID for this client's tasks
+              The Internal ClickUp List ID for this client&apos;s tasks
             </p>
           </div>
 
