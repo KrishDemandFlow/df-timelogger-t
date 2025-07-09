@@ -110,7 +110,7 @@ export default function TeamMemberList({ initialTeamMembers }: TeamMemberListPro
             <div>
               <h3 className="text-lg font-medium text-gray-900 mb-1">No team members found</h3>
               <p className="text-gray-500">
-                No team members match your search for "{searchTerm}"
+                No team members match your search for &quot;{searchTerm}&quot;
               </p>
             </div>
           ) : (
