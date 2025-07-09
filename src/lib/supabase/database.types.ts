@@ -9,6 +9,30 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      ClickUpUsers: {
+        Row: {
+          clickup_user_id: string
+          created_at: string
+          id: number
+          updated_at: string
+          username: string
+        }
+        Insert: {
+          clickup_user_id: string
+          created_at?: string
+          id?: number
+          updated_at?: string
+          username: string
+        }
+        Update: {
+          clickup_user_id?: string
+          created_at?: string
+          id?: number
+          updated_at?: string
+          username?: string
+        }
+        Relationships: []
+      }
       Clients: {
         Row: {
           billing_cycle_start_day: number | null
@@ -40,6 +64,7 @@ export type Database = {
         Row: {
           clickup_task_id: string | null
           clickup_time_entry_id: string | null
+          clickup_user_id: string | null
           client_id: number
           created_at: string
           description: string | null
@@ -50,6 +75,7 @@ export type Database = {
         Insert: {
           clickup_task_id?: string | null
           clickup_time_entry_id?: string | null
+          clickup_user_id?: string | null
           client_id: number
           created_at?: string
           description?: string | null
@@ -60,6 +86,7 @@ export type Database = {
         Update: {
           clickup_task_id?: string | null
           clickup_time_entry_id?: string | null
+          clickup_user_id?: string | null
           client_id?: number
           created_at?: string
           description?: string | null
@@ -75,6 +102,13 @@ export type Database = {
             referencedRelation: "Clients"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "TimeLogs_clickup_user_id_fkey"
+            columns: ["clickup_user_id"]
+            isOneToOne: false
+            referencedRelation: "ClickUpUsers"
+            referencedColumns: ["clickup_user_id"]
+          }
         ]
       }
       sync_logs: {
@@ -220,22 +254,16 @@ export type Enums<
     : never
 
 export type CompositeTypes<
-  PublicCompositeTypeNameOrOptions extends
+  DefaultSchemaCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof Database },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends DefaultSchemaCompositeTypeNameOrOptions extends {
     schema: keyof Database
   }
-    ? keyof Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    ? keyof Database[DefaultSchemaCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
     : never = never,
-> = PublicCompositeTypeNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+> = DefaultSchemaCompositeTypeNameOrOptions extends { schema: keyof Database }
+  ? Database[DefaultSchemaCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : DefaultSchemaCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][DefaultSchemaCompositeTypeNameOrOptions]
     : never
-
-export const Constants = {
-  public: {
-    Enums: {},
-  },
-} as const

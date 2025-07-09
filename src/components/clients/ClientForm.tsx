@@ -135,12 +135,13 @@ export default function ClientForm({ initialData, onSuccess }: ClientFormProps) 
                 <DialogTrigger asChild>
                   <Button 
                     type="button" 
-                    variant="outline" 
+                    variant="ghost" 
                     size="sm" 
-                    className="py-1.5 gap-2 h-auto leading-none px-2 text-xs"
+                    className="h-auto p-1"
                   >
-                    How to
+                    {/* How to */}
                     <HelpCircle className="h-1 w-1" />
+                    
                     
                   </Button>
                 </DialogTrigger>
@@ -234,7 +235,7 @@ export default function ClientForm({ initialData, onSuccess }: ClientFormProps) 
               </p>
             )}
             <p className="text-sm text-gray-500">
-              Hours allocated per week for this client (eg: 1 Day = 8 Hours)
+              Hours allocated per week for this client (eg: 8 Hours = 1 Day)
             </p>
           </div>
 

@@ -5,6 +5,8 @@ import UserMenu from '@/components/auth/UserMenu'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { HelpCircle } from 'lucide-react'
+
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -40,19 +42,46 @@ export default function RootLayout({
 </Link>
                 </h1>
               </div>
+              <nav className="ml-6 flex items-center space-x-6">
+                {/* <Link href="/" className="text-sm font-medium text-gray-700 hover:text-primary transition-colors">
+                  Dashboard
+                </Link>
+                <Link href="/clients" className="text-sm font-medium text-gray-700 hover:text-primary transition-colors">
+                  Clients
+                </Link> */}
+               
+              </nav>
               <div className="ml-auto flex items-center gap-3">
+              {/* <Link href="/team-members" className="text-sm font-medium text-gray-700 hover:text-primary transition-colors">
+                  Team Members
+                </Link> */}
                 <Button 
                   variant="ghost" 
                   asChild
                   className="text-gray-700 font-normal"
                 >
                   <Link 
+                    href="/team-members"
+                 
+                    rel="noopener noreferrer"
+                  >
+                    Team Members
+                  </Link>
+                </Button>
+                <Button 
+                  variant="ghost" 
+                   size="icon"
+                   title='Documentation'
+                  asChild
+                  // className="text-gray-700 font-normal"
+                >
+                  <Link 
                     href="https://demandflow.notion.site/How-to-use-Clickup-Timelogger-tool-2247c5c170c880a9b45ff1c3bfd3ce3b?source=copy_link"
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    Instructions
-                  </Link>
+                    <HelpCircle className="h-5 w-5 text-gray-600" />
+                    </Link>
                 </Button>
                 <UserMenu />
               </div>
