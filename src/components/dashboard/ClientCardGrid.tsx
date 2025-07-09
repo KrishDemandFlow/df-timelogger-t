@@ -1,15 +1,17 @@
 "use client";
 
 import { useState, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import type { Database } from '@/lib/supabase/database.types';
 import TaskBreakdownModal from './TaskBreakdownModal';
 import CycleSelector from './CycleSelector';
 import CalculationSettingsButton from './CalculationSettingsButton';
 import SyncButton from '@/components/sync/SyncButton';
+import DeleteClientDialog from '@/components/clients/DeleteClientDialog';
 import { Button } from '@/components/ui/button';
 import { useCalculationSettings } from './CalculationSettingsContext';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Info, BarChart2, CalendarDays, Download, Clipboard } from 'lucide-react';
+import { Info, BarChart2, CalendarDays, Download, Clipboard, MoreHorizontal, Eye, Edit, Trash2, Plus, Loader2 } from 'lucide-react';
 import { format } from 'date-fns/format';
 
 type Client = Database['public']['Tables']['Clients']['Row'];
@@ -59,9 +61,12 @@ function ClientCard({ client, usersMap, includeLeadTime, isPartOfDuplicate, dupl
     duplicateInfo: ClientTimeData[],
     cycle: 'current' | 'previous' | 'custom'
 }) {
+    const router = useRouter();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isAnimated, setIsAnimated] = useState(false);
     const [copied, setCopied] = useState(false);
+    const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+    const [isNavigating, setIsNavigating] = useState<'view' | 'edit' | null>(null);
 
     // Trigger animation on mount
     useEffect(() => {
@@ -85,6 +90,21 @@ function ClientCard({ client, usersMap, includeLeadTime, isPartOfDuplicate, dupl
         : 'bg-green-500';
 
     const dateRangeText = `${formatDate(client.cycleStart)} - ${formatDate(client.cycleEnd)}`;
+
+    const handleViewDetails = () => {
+        setIsNavigating('view');
+        router.push(`/clients/${client.id}`);
+    };
+
+    const handleEdit = () => {
+        setIsNavigating('edit');
+        router.push(`/clients/${client.id}/edit`);
+    };
+
+    const handleDeleteSuccess = () => {
+        // Refresh the page to update the client list
+        router.refresh();
+    };
 
     return (
         // Outer light gray card container
@@ -214,83 +234,131 @@ function ClientCard({ client, usersMap, includeLeadTime, isPartOfDuplicate, dupl
                     View Tasks
                 </Button>
 
-                {/* Export dropdown (moved) */}
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="border border-gray-200 bg-transparent hover:bg-gray-50 text-black rounded-md px-2.5 py-1.5 flex items-center justify-center">
-                      <Download className="h-4 w-4" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="min-w-[12.5rem] w-[12.5rem] p-1">
-                    <div className="flex flex-col gap-1">
-                      <button
-                        className="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none hover:bg-accent hover:text-accent-foreground gap-2"
-                        onClick={() => {
-                          // Generate CSV content
-                          const uniqueTaskIds = Array.from(new Set((client.timeLogs || []).map(t => t.clickup_task_id))).filter(Boolean);
-                          const taskLinks = uniqueTaskIds.map(id => `https://app.clickup.com/t/${id}`).join(', ');
-                          const usedHoursVal = includeLeadTime ? client.usedHoursWithLeadTime : client.usedHoursWithoutLeadTime;
-                          const utilisedPct = (usedHoursVal / client.allocatedHours) * 100;
-                          const csvHeader = [
-                            'client_name',
-                            'cycle_start',
-                            'cycle_end',
-                            'clickup_task_links',
-                            'total_hours_used',
-                            'hours_allocated',
-                            'utilised_%',
-                            'buffer_applied',
-                            'remaining_hours',
-                          ].join(',');
-                          const csvRow = [
-                            `"${client.name || ''}"`,
-                            client.cycleStart,
-                            client.cycleEnd,
-                            `"${taskLinks}"`,
-                            usedHoursVal.toFixed(2),
-                            client.allocatedHours.toFixed(2),
-                            utilisedPct.toFixed(1),
-                            '+10%',
-                            (client.allocatedHours - usedHoursVal).toFixed(2),
-                          ].join(',');
-                          const csvContent = `${csvHeader}\n${csvRow}`;
-                          const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-                          const url = URL.createObjectURL(blob);
-                          const link = document.createElement('a');
-                          link.href = url;
-                          const safeName = (client.name || 'client').replace(/[^a-z0-9]/gi, '_').toLowerCase();
-                          link.setAttribute('download', `${safeName}_${client.cycleStart}_${client.cycleEnd}.csv`);
-                          document.body.appendChild(link);
-                          link.click();
-                          document.body.removeChild(link);
-                          URL.revokeObjectURL(url);
-                        }}
-                      >
-                        <Download className="h-4 w-4" /> Export as CSV
-                      </button>
-                      <button
-                        className="relative min-w-[195px] flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none hover:bg-accent hover:text-accent-foreground gap-2"
-                        onClick={() => {
-                          const usedHoursVal = includeLeadTime ? client.usedHoursWithLeadTime : client.usedHoursWithoutLeadTime;
-                          const utilisedPct = (usedHoursVal / client.allocatedHours) * 100;
-                          const heading =
-                            cycle === 'custom'
-                              ? `${(client.name || '').trim()} - ${format(new Date(client.cycleStart), 'yyyy-MM-dd')} → ${format(new Date(client.cycleEnd), 'yyyy-MM-dd')} Summary`
-                              : `${(client.name || '').trim()} - ${format(new Date(client.cycleStart), 'MMMM yyyy')} Summary`;
+                <div className="flex items-center gap-2">
+    
 
-                          const dateLine = `- Date: ${format(new Date(client.cycleStart), 'yyyy-MM-dd')} to ${format(new Date(client.cycleEnd), 'yyyy-MM-dd')}`;
-                          const md = `## ${heading}\n${dateLine}\n- Total hours used: ${formatHoursMinutes(usedHoursVal)}\n- Total Hours allocated: ${formatHoursMinutes(client.allocatedHours)}\n- Utilisation: ${utilisedPct.toFixed(1)}%\n- Buffer applied: +10%`;
-                          navigator.clipboard.writeText(md).then(() => {
-                            setCopied(true);
-                            setTimeout(() => setCopied(false), 2000);
-                          });
-                        }}
-                      >
-                        <Clipboard className="h-4 w-4" /> {copied ? 'Copied!' : 'Copy as Markdown'}
-                      </button>
-                    </div>
-                  </PopoverContent>
-                </Popover>
+                  {/* Export dropdown */}
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="border border-gray-200 bg-transparent hover:bg-gray-50 text-black rounded-md px-2.5 py-1.5 flex items-center justify-center">
+                        <Download className="h-4 w-4" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="min-w-[12.5rem] w-[12.5rem] p-1">
+                      <div className="flex flex-col gap-1">
+                        <button
+                          className="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none hover:bg-accent hover:text-accent-foreground gap-2"
+                          onClick={() => {
+                            // Generate CSV content
+                            const uniqueTaskIds = Array.from(new Set((client.timeLogs || []).map(t => t.clickup_task_id))).filter(Boolean);
+                            const taskLinks = uniqueTaskIds.map(id => `https://app.clickup.com/t/${id}`).join(', ');
+                            const usedHoursVal = includeLeadTime ? client.usedHoursWithLeadTime : client.usedHoursWithoutLeadTime;
+                            const utilisedPct = (usedHoursVal / client.allocatedHours) * 100;
+                            const csvHeader = [
+                              'client_name',
+                              'cycle_start',
+                              'cycle_end',
+                              'clickup_task_links',
+                              'total_hours_used',
+                              'hours_allocated',
+                              'utilised_%',
+                              'buffer_applied',
+                              'remaining_hours',
+                            ].join(',');
+                            const csvRow = [
+                              `"${client.name || ''}"`,
+                              client.cycleStart,
+                              client.cycleEnd,
+                              `"${taskLinks}"`,
+                              usedHoursVal.toFixed(2),
+                              client.allocatedHours.toFixed(2),
+                              utilisedPct.toFixed(1),
+                              '+10%',
+                              (client.allocatedHours - usedHoursVal).toFixed(2),
+                            ].join(',');
+                            const csvContent = `${csvHeader}\n${csvRow}`;
+                            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                            const url = URL.createObjectURL(blob);
+                            const link = document.createElement('a');
+                            link.href = url;
+                            const safeName = (client.name || 'client').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+                            link.setAttribute('download', `${safeName}_${client.cycleStart}_${client.cycleEnd}.csv`);
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                            URL.revokeObjectURL(url);
+                          }}
+                        >
+                          <Download className="h-4 w-4" /> Export as CSV
+                        </button>
+                        <button
+                          className="relative min-w-[195px] flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none hover:bg-accent hover:text-accent-foreground gap-2"
+                          onClick={() => {
+                            const usedHoursVal = includeLeadTime ? client.usedHoursWithLeadTime : client.usedHoursWithoutLeadTime;
+                            const utilisedPct = (usedHoursVal / client.allocatedHours) * 100;
+                            const heading =
+                              cycle === 'custom'
+                                ? `${(client.name || '').trim()} - ${format(new Date(client.cycleStart), 'yyyy-MM-dd')} → ${format(new Date(client.cycleEnd), 'yyyy-MM-dd')} Summary`
+                                : `${(client.name || '').trim()} - ${format(new Date(client.cycleStart), 'MMMM yyyy')} Summary`;
+
+                            const dateLine = `- Date: ${format(new Date(client.cycleStart), 'yyyy-MM-dd')} to ${format(new Date(client.cycleEnd), 'yyyy-MM-dd')}`;
+                            const md = `## ${heading}\n${dateLine}\n- Total hours used: ${formatHoursMinutes(usedHoursVal)}\n- Total Hours allocated: ${formatHoursMinutes(client.allocatedHours)}\n- Utilisation: ${utilisedPct.toFixed(1)}%\n- Buffer applied: +10%`;
+                            navigator.clipboard.writeText(md).then(() => {
+                              setCopied(true);
+                              setTimeout(() => setCopied(false), 2000);
+                            });
+                          }}
+                        >
+                          <Clipboard className="h-4 w-4" /> {copied ? 'Copied!' : 'Copy as Markdown'}
+                        </button>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+
+                                {/* Action Menu */}
+                                <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="border border-gray-200 bg-transparent hover:bg-gray-50 text-black rounded-md px-2.5 py-1.5 flex items-center justify-center">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-48 p-1">
+                      <div className="flex flex-col gap-1">
+                        <button
+                          className="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none hover:bg-accent hover:text-accent-foreground gap-2"
+                          onClick={handleViewDetails}
+                          disabled={isNavigating === 'view'}
+                        >
+                          {isNavigating === 'view' ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                          View Details
+                        </button>
+                        <button
+                          className="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none hover:bg-accent hover:text-accent-foreground gap-2"
+                          onClick={handleEdit}
+                          disabled={isNavigating === 'edit'}
+                        >
+                          {isNavigating === 'edit' ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Edit className="h-4 w-4" />
+                          )}
+                          Edit
+                        </button>
+                        <button
+                          className="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none hover:bg-accent hover:text-accent-foreground gap-2 hover:bg-red-50 hover:text-red-600"
+                          onClick={() => setShowDeleteDialog(true)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Delete
+                        </button>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
             </div>
 
             <TaskBreakdownModal 
@@ -298,6 +366,13 @@ function ClientCard({ client, usersMap, includeLeadTime, isPartOfDuplicate, dupl
                 onClose={() => setIsModalOpen(false)}
                 client={client}
                 usersMap={usersMap}
+            />
+
+            <DeleteClientDialog
+                client={client}
+                isOpen={showDeleteDialog}
+                onClose={() => setShowDeleteDialog(false)}
+                onSuccess={handleDeleteSuccess}
             />
           </div>
         </div>
@@ -318,6 +393,13 @@ export default function ClientCardGrid({
   endDate?: string;
 }) {
   const { includeLeadTime, setIncludeLeadTime } = useCalculationSettings();
+  const router = useRouter();
+  const [isAddingClient, setIsAddingClient] = useState(false);
+
+  const handleAddClient = () => {
+    setIsAddingClient(true);
+    router.push('/clients/new');
+  };
 
   // Check for duplicate clickup_list_ids
   const listIdGroups: Record<string, ClientTimeData[]> = {};
@@ -337,13 +419,21 @@ export default function ClientCardGrid({
         {/* Calculation settings card removed as per new design */}
         
         {/* Date selector & settings */}
-        <div className="flex justify-end items-center gap-4">
+        <div className="flex justify-end items-center gap-4 flex-wrap">
           <div className="mr-auto">
             <SyncButton />
-            
           </div>
+        
           <CalculationSettingsButton />
           <CycleSelector initialCycle={cycle} initialStartDate={startDate} initialEndDate={endDate} />
+          <Button onClick={handleAddClient} disabled={isAddingClient}>
+            {isAddingClient ? (
+              <Loader2 className="h-4 w-4 mr-0 animate-spin" />
+            ) : (
+              <Plus className="h-4 w-4 mr-2 hidden" />
+            )}
+            Add New Client
+          </Button>
         </div>
 
         {duplicateListIds.length > 0 && (

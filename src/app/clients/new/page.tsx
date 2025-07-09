@@ -3,9 +3,10 @@ import ClientForm from '@/components/clients/ClientForm';
 export default function NewClientPage() {
   return (
     <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Add New Client</h1>
-      <div className="max-w-md">
-        <ClientForm />
+      <div className="flex items-center justify-center min-h-[calc(100vh-2rem)]">
+        <div className="w-full max-w-2xl">
+          <ClientForm />
+        </div>
       </div>
     </div>
   );

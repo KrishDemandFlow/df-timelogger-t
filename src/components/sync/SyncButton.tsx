@@ -95,6 +95,7 @@ export default function SyncButton() {
     <div className="flex flex-col items-start gap-2">
       <Button
         onClick={handleSync}
+        variant="outline"
         disabled={isLoading}
       >
         {isLoading ? (
