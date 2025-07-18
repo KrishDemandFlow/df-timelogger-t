@@ -40,6 +40,8 @@ export enum LeadTimeStrategy {
  * @param billingCycleEndDate The end date of the billing cycle.
  * @param weeklyAllocatedHours The weekly allocated hours for this client.
  * @param leadTimeStrategy The strategy to use for calculating lead time.
+ * @param cycleType The type of cycle being calculated (affects lead time calculation).
+ * @param includeBuffer Whether to apply the 10% buffer to execution time.
  * @returns The total calculated billable hours.
  */
 export function calculateBilledHours(
@@ -47,13 +49,15 @@ export function calculateBilledHours(
   billingCycleStartDate: Date,
   billingCycleEndDate: Date,
   weeklyAllocatedHours: number = 0,
-  leadTimeStrategy: LeadTimeStrategy = LeadTimeStrategy.FIXED_PER_DAY
+  leadTimeStrategy: LeadTimeStrategy = LeadTimeStrategy.FIXED_PER_DAY,
+  cycleType: 'weekly' | 'monthly' = 'monthly',
+  includeBuffer: boolean = true
 ): number {
   const BUFFER_MULTIPLIER = 1.1; // As specified: 1.1x factor for untracked work
   const LEAD_TIME_HOURS_PER_DAY = 2; // As specified: 2 hours per allocated work day for project lead time
   const HOURS_PER_WORK_DAY = 8; // Standard work day
 
-  const bufferedMinutes = totalDurationMinutes * BUFFER_MULTIPLIER;
+  const bufferedMinutes = includeBuffer ? totalDurationMinutes * BUFFER_MULTIPLIER : totalDurationMinutes;
   
   let leadTimeMinutes = 0;
   
@@ -62,21 +66,37 @@ export function calculateBilledHours(
       leadTimeMinutes = 0;
       break;
     case LeadTimeStrategy.FIXED_PER_DAY:
-      // Calculate lead time based on allocated work days, not total calendar days
+      // Calculate lead time based on allocated work days
       if (weeklyAllocatedHours > 0) {
         const allocatedDaysPerWeek = weeklyAllocatedHours / HOURS_PER_WORK_DAY;
-        const weeksInCycle = 4.33; // Average weeks per month
-        const allocatedDaysInCycle = allocatedDaysPerWeek * weeksInCycle;
-        leadTimeMinutes = allocatedDaysInCycle * LEAD_TIME_HOURS_PER_DAY * 60;
+        
+        if (cycleType === 'weekly') {
+          // For weekly view: only count lead time for the specific week
+          const allocatedDaysInWeek = allocatedDaysPerWeek;
+          leadTimeMinutes = allocatedDaysInWeek * LEAD_TIME_HOURS_PER_DAY * 60;
+        } else {
+          // For monthly view: use the traditional calculation
+          const weeksInCycle = 4.33; // Average weeks per month
+          const allocatedDaysInCycle = allocatedDaysPerWeek * weeksInCycle;
+          leadTimeMinutes = allocatedDaysInCycle * LEAD_TIME_HOURS_PER_DAY * 60;
+        }
       }
       break;
     case LeadTimeStrategy.PROPORTIONAL:
       // Only add lead time if there's actual work done
       if (totalDurationMinutes > 0 && weeklyAllocatedHours > 0) {
         const allocatedDaysPerWeek = weeklyAllocatedHours / HOURS_PER_WORK_DAY;
-        const weeksInCycle = 4.33; // Average weeks per month
-        const allocatedDaysInCycle = allocatedDaysPerWeek * weeksInCycle;
-        leadTimeMinutes = allocatedDaysInCycle * LEAD_TIME_HOURS_PER_DAY * 60;
+        
+        if (cycleType === 'weekly') {
+          // For weekly view: only count lead time for the specific week
+          const allocatedDaysInWeek = allocatedDaysPerWeek;
+          leadTimeMinutes = allocatedDaysInWeek * LEAD_TIME_HOURS_PER_DAY * 60;
+        } else {
+          // For monthly view: use the traditional calculation
+          const weeksInCycle = 4.33; // Average weeks per month
+          const allocatedDaysInCycle = allocatedDaysPerWeek * weeksInCycle;
+          leadTimeMinutes = allocatedDaysInCycle * LEAD_TIME_HOURS_PER_DAY * 60;
+        }
       }
       break;
   }
@@ -92,5 +112,5 @@ export function calculateBilledHoursOriginal(
   billingCycleStartDate: Date,
   billingCycleEndDate: Date
 ): number {
-  return calculateBilledHours(totalDurationMinutes, billingCycleStartDate, billingCycleEndDate, 0, LeadTimeStrategy.FIXED_PER_DAY);
+  return calculateBilledHours(totalDurationMinutes, billingCycleStartDate, billingCycleEndDate, 0, LeadTimeStrategy.FIXED_PER_DAY, 'monthly', true);
 } 

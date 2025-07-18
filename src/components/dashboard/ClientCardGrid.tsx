@@ -24,6 +24,10 @@ export type ClientTimeData = Database['public']['Tables']['Clients']['Row'] & {
   percentageUsedWithLeadTime: number;
   usedHoursWithoutLeadTime: number;
   percentageUsedWithoutLeadTime: number;
+  usedHoursWithLeadTimeNoBuffer: number;
+  percentageUsedWithLeadTimeNoBuffer: number;
+  usedHoursWithoutLeadTimeNoBuffer: number;
+  percentageUsedWithoutLeadTimeNoBuffer: number;
   rawHours: number;
   bufferedHours: number;
   leadTimeHours: number;
@@ -53,13 +57,14 @@ function formatDate(dateString: string) {
   return format(new Date(dateString), 'MMM d');
 }
 
-function ClientCard({ client, usersMap, includeLeadTime, isPartOfDuplicate, duplicateInfo, cycle }: { 
+function ClientCard({ client, usersMap, includeLeadTime, includeBuffer, isPartOfDuplicate, duplicateInfo, cycle }: { 
     client: ClientTimeData, 
     usersMap: Record<string, string>, 
     includeLeadTime: boolean,
+    includeBuffer: boolean,
     isPartOfDuplicate: boolean,
     duplicateInfo: ClientTimeData[],
-    cycle: 'current' | 'previous' | 'custom'
+    cycle: 'current' | 'previous' | 'this-week' | 'last-week' | 'custom'
 }) {
     const router = useRouter();
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -76,8 +81,14 @@ function ClientCard({ client, usersMap, includeLeadTime, isPartOfDuplicate, dupl
         return () => clearTimeout(timer);
     }, []);
 
-    const usedHours = includeLeadTime ? client.usedHoursWithLeadTime : client.usedHoursWithoutLeadTime;
-    const percentageUsed = includeLeadTime ? client.percentageUsedWithLeadTime : client.percentageUsedWithoutLeadTime;
+    // Choose the appropriate calculation based on settings
+    const usedHours = includeLeadTime 
+      ? (includeBuffer ? client.usedHoursWithLeadTime : client.usedHoursWithLeadTimeNoBuffer)
+      : (includeBuffer ? client.usedHoursWithoutLeadTime : client.usedHoursWithoutLeadTimeNoBuffer);
+    
+    const percentageUsed = includeLeadTime 
+      ? (includeBuffer ? client.percentageUsedWithLeadTime : client.percentageUsedWithLeadTimeNoBuffer)
+      : (includeBuffer ? client.percentageUsedWithoutLeadTime : client.percentageUsedWithoutLeadTimeNoBuffer);
 
     const barPercent = Math.min(percentageUsed, 100);
     const animatedBarPercent = isAnimated ? barPercent : 0;
@@ -135,14 +146,14 @@ function ClientCard({ client, usersMap, includeLeadTime, isPartOfDuplicate, dupl
                           </div>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className="text-gray-600">Weekly hours</span>
+                          <span className="text-gray-600">Weekly allocated</span>
                           <span className="font-semibold text-gray-900">{client.weekly_allocated_hours ?? '—'}</span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className="text-gray-600">Monthly hours</span>
+                          <span className="text-gray-600">{cycle === 'this-week' || cycle === 'last-week' ? 'Weekly hours' : 'Monthly hours'}</span>
                           <span className="font-semibold text-gray-900">
                             {formatHoursMinutes(client.allocatedHours)}
-                            {client.weekly_allocated_hours ? (
+                            {client.weekly_allocated_hours && cycle !== 'this-week' && cycle !== 'last-week' ? (
                               <span className="text-gray-600 font-normal"> ({client.weekly_allocated_hours}h * 4.33)</span>
                             ) : null}
                           </span>
@@ -184,7 +195,7 @@ function ClientCard({ client, usersMap, includeLeadTime, isPartOfDuplicate, dupl
                                         Breakdown
                                     </Button>
                                 </PopoverTrigger>
-                                <PopoverContent className="w-64">
+                                <PopoverContent className="w-80">
                                     <div className="space-y-2 text-sm">
                                         <h4 className="font-bold text-base text-gray-800 mb-2">Billed Hours Breakdown</h4>
                                         <div className="flex justify-between">
@@ -193,12 +204,32 @@ function ClientCard({ client, usersMap, includeLeadTime, isPartOfDuplicate, dupl
                                         </div>
                                         <div className="flex justify-between">
                                             <span className="text-gray-600">Buffer (10%):</span>
-                                            <span className="font-medium text-gray-900">{formatHoursMinutes(client.bufferedHours - client.rawHours)}</span>
+                                            <span className="font-medium text-gray-900">
+                                                {includeBuffer 
+                                                    ? formatHoursMinutes(client.bufferedHours - client.rawHours)
+                                                    : formatHoursMinutes(0)
+                                                }
+                                            </span>
                                         </div>
                                         {includeLeadTime && (
-                                            <div className="flex justify-between">
-                                                <span className="text-gray-600">Project Lead Time:</span>
-                                                <span className="font-medium text-gray-900">{formatHoursMinutes(client.leadTimeHours)}</span>
+                                            <div className="space-y-1">
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600">Project Lead Time:</span>
+                                                    <span className="font-medium text-gray-900">{formatHoursMinutes(client.leadTimeHours)}</span>
+                                                </div>
+                                                <div className="text-xs text-gray-500 pl-2 border-l-2 border-gray-200">
+                                                    {cycle === 'this-week' || cycle === 'last-week' ? (
+                                                        <>
+                                                            <div>{((client.weekly_allocated_hours || 0) / 8).toFixed(1)} days × 2h/day</div>
+                                                            <div className="text-gray-400">({client.weekly_allocated_hours || 0}h ÷ 8h/day = {((client.weekly_allocated_hours || 0) / 8).toFixed(1)} days)</div>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <div>{((client.weekly_allocated_hours || 0) / 8 * 4.33).toFixed(1)} days × 2h/day</div>
+                                                            <div className="text-gray-400">({((client.weekly_allocated_hours || 0) / 8).toFixed(1)} days/week × 4.33 weeks)</div>
+                                                        </>
+                                                    )}
+                                                </div>
                                             </div>
                                         )}
                                         <div className="flex justify-between pt-2 mt-2 border-t font-bold">
@@ -252,10 +283,13 @@ function ClientCard({ client, usersMap, includeLeadTime, isPartOfDuplicate, dupl
                             // Generate CSV content
                             const uniqueTaskIds = Array.from(new Set((client.timeLogs || []).map(t => t.clickup_task_id))).filter(Boolean);
                             const taskLinks = uniqueTaskIds.map(id => `https://app.clickup.com/t/${id}`).join(', ');
-                            const usedHoursVal = includeLeadTime ? client.usedHoursWithLeadTime : client.usedHoursWithoutLeadTime;
+                            const usedHoursVal = includeLeadTime 
+                              ? (includeBuffer ? client.usedHoursWithLeadTime : client.usedHoursWithLeadTimeNoBuffer)
+                              : (includeBuffer ? client.usedHoursWithoutLeadTime : client.usedHoursWithoutLeadTimeNoBuffer);
                             const utilisedPct = (usedHoursVal / client.allocatedHours) * 100;
                             const csvHeader = [
                               'client_name',
+                              'cycle_type',
                               'cycle_start',
                               'cycle_end',
                               'clickup_task_links',
@@ -267,13 +301,17 @@ function ClientCard({ client, usersMap, includeLeadTime, isPartOfDuplicate, dupl
                             ].join(',');
                             const csvRow = [
                               `"${client.name || ''}"`,
+                              cycle === 'this-week' ? 'This Week' : cycle === 'last-week' ? 'Last Week' : cycle === 'custom' ? 'Custom' : cycle === 'previous' ? 'Previous Cycle' : 'Current Cycle',
                               client.cycleStart,
                               client.cycleEnd,
                               `"${taskLinks}"`,
                               usedHoursVal.toFixed(2),
                               client.allocatedHours.toFixed(2),
                               utilisedPct.toFixed(1),
-                              '+10%',
+                              includeLeadTime && includeBuffer ? '+10% buffer, +2h/day lead time' : 
+                              includeLeadTime && !includeBuffer ? '+2h/day lead time only' :
+                              !includeLeadTime && includeBuffer ? '+10% buffer only' : 
+                              'Raw execution time only',
                               (client.allocatedHours - usedHoursVal).toFixed(2),
                             ].join(',');
                             const csvContent = `${csvHeader}\n${csvRow}`;
@@ -282,7 +320,8 @@ function ClientCard({ client, usersMap, includeLeadTime, isPartOfDuplicate, dupl
                             const link = document.createElement('a');
                             link.href = url;
                             const safeName = (client.name || 'client').replace(/[^a-z0-9]/gi, '_').toLowerCase();
-                            link.setAttribute('download', `${safeName}_${client.cycleStart}_${client.cycleEnd}.csv`);
+                            const cyclePrefix = cycle === 'this-week' ? 'this-week' : cycle === 'last-week' ? 'last-week' : cycle === 'custom' ? 'custom' : cycle === 'previous' ? 'previous' : 'current';
+                            link.setAttribute('download', `${safeName}_${cyclePrefix}_${format(new Date(client.cycleStart), 'yyyy-MM-dd')}_${format(new Date(client.cycleEnd), 'yyyy-MM-dd')}.csv`);
                             document.body.appendChild(link);
                             link.click();
                             document.body.removeChild(link);
@@ -294,15 +333,28 @@ function ClientCard({ client, usersMap, includeLeadTime, isPartOfDuplicate, dupl
                         <button
                           className="relative min-w-[195px] flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none hover:bg-accent hover:text-accent-foreground gap-2"
                           onClick={() => {
-                            const usedHoursVal = includeLeadTime ? client.usedHoursWithLeadTime : client.usedHoursWithoutLeadTime;
+                            const usedHoursVal = includeLeadTime 
+                              ? (includeBuffer ? client.usedHoursWithLeadTime : client.usedHoursWithLeadTimeNoBuffer)
+                              : (includeBuffer ? client.usedHoursWithoutLeadTime : client.usedHoursWithoutLeadTimeNoBuffer);
                             const utilisedPct = (usedHoursVal / client.allocatedHours) * 100;
-                            const heading =
-                              cycle === 'custom'
-                                ? `${(client.name || '').trim()} - ${format(new Date(client.cycleStart), 'yyyy-MM-dd')} → ${format(new Date(client.cycleEnd), 'yyyy-MM-dd')} Summary`
-                                : `${(client.name || '').trim()} - ${format(new Date(client.cycleStart), 'MMMM yyyy')} Summary`;
+                            
+                            // Generate cycle-aware heading
+                            let heading;
+                            if (cycle === 'this-week') {
+                              heading = `${(client.name || '').trim()} - This Week Summary (${format(new Date(client.cycleStart), 'MMM d')} - ${format(new Date(client.cycleEnd), 'MMM d, yyyy')})`;
+                            } else if (cycle === 'last-week') {
+                              heading = `${(client.name || '').trim()} - Last Week Summary (${format(new Date(client.cycleStart), 'MMM d')} - ${format(new Date(client.cycleEnd), 'MMM d, yyyy')})`;
+                            } else if (cycle === 'custom') {
+                              heading = `${(client.name || '').trim()} - Custom Range (${format(new Date(client.cycleStart), 'yyyy-MM-dd')} → ${format(new Date(client.cycleEnd), 'yyyy-MM-dd')})`;
+                            } else if (cycle === 'previous') {
+                              heading = `${(client.name || '').trim()} - Previous Cycle (${format(new Date(client.cycleStart), 'MMMM yyyy')})`;
+                            } else {
+                              heading = `${(client.name || '').trim()} - Current Cycle (${format(new Date(client.cycleStart), 'MMMM yyyy')})`;
+                            }
 
-                            const dateLine = `- Date: ${format(new Date(client.cycleStart), 'yyyy-MM-dd')} to ${format(new Date(client.cycleEnd), 'yyyy-MM-dd')}`;
-                            const md = `## ${heading}\n${dateLine}\n- Total hours used: ${formatHoursMinutes(usedHoursVal)}\n- Total Hours allocated: ${formatHoursMinutes(client.allocatedHours)}\n- Utilisation: ${utilisedPct.toFixed(1)}%\n- Buffer applied: +10%`;
+                            const dateLine = `- Period: ${format(new Date(client.cycleStart), 'yyyy-MM-dd')} to ${format(new Date(client.cycleEnd), 'yyyy-MM-dd')}`;
+                            const cycleTypeLine = `- Cycle Type: ${cycle === 'this-week' ? 'This Week' : cycle === 'last-week' ? 'Last Week' : cycle === 'custom' ? 'Custom Range' : cycle === 'previous' ? 'Previous Billing Cycle' : 'Current Billing Cycle'}`;
+                            const md = `## ${heading}\n${dateLine}\n${cycleTypeLine}\n- Total hours used: ${formatHoursMinutes(usedHoursVal)}\n- Total hours allocated: ${formatHoursMinutes(client.allocatedHours)}\n- Utilisation: ${utilisedPct.toFixed(1)}%`;
                             navigator.clipboard.writeText(md).then(() => {
                               setCopied(true);
                               setTimeout(() => setCopied(false), 2000);
@@ -388,11 +440,11 @@ export default function ClientCardGrid({
 }: {
   clientTimeData: ClientTimeData[];
   usersMap: Record<string, string>;
-  cycle: 'current' | 'previous' | 'custom';
+  cycle: 'current' | 'previous' | 'this-week' | 'last-week' | 'custom';
   startDate?: string;
   endDate?: string;
 }) {
-  const { includeLeadTime, setIncludeLeadTime } = useCalculationSettings();
+  const { includeLeadTime, setIncludeLeadTime, includeBuffer, setIncludeBuffer } = useCalculationSettings();
   const router = useRouter();
   const [isAddingClient, setIsAddingClient] = useState(false);
 
@@ -480,6 +532,7 @@ export default function ClientCardGrid({
                         client={client}
                         usersMap={usersMap}
                         includeLeadTime={includeLeadTime}
+                        includeBuffer={includeBuffer}
                         isPartOfDuplicate={isPartOfDuplicate}
                         duplicateInfo={duplicateInfo}
                         cycle={cycle}

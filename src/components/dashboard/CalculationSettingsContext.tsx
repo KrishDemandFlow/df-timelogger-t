@@ -5,15 +5,18 @@ import { createContext, useContext, useState, ReactNode } from 'react';
 interface CalculationSettingsContextValue {
   includeLeadTime: boolean;
   setIncludeLeadTime: (value: boolean) => void;
+  includeBuffer: boolean;
+  setIncludeBuffer: (value: boolean) => void;
 }
 
 const CalculationSettingsContext = createContext<CalculationSettingsContextValue | undefined>(undefined);
 
 export function CalculationSettingsProvider({ children }: { children: ReactNode }) {
-  const [includeLeadTime, setIncludeLeadTime] = useState(false);
+  const [includeLeadTime, setIncludeLeadTime] = useState(true);
+  const [includeBuffer, setIncludeBuffer] = useState(true);
 
   return (
-    <CalculationSettingsContext.Provider value={{ includeLeadTime, setIncludeLeadTime }}>
+    <CalculationSettingsContext.Provider value={{ includeLeadTime, setIncludeLeadTime, includeBuffer, setIncludeBuffer }}>
       {children}
     </CalculationSettingsContext.Provider>
   );

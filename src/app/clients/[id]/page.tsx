@@ -22,6 +22,10 @@ interface ClientTimeData extends Client {
   percentageUsedWithLeadTime: number;
   usedHoursWithoutLeadTime: number;
   percentageUsedWithoutLeadTime: number;
+  usedHoursWithLeadTimeNoBuffer: number;
+  percentageUsedWithLeadTimeNoBuffer: number;
+  usedHoursWithoutLeadTimeNoBuffer: number;
+  percentageUsedWithoutLeadTimeNoBuffer: number;
   rawHours: number;
   bufferedHours: number;
   leadTimeHours: number;
@@ -54,6 +58,10 @@ async function getClientWithTimeData(id: string): Promise<ClientTimeData | null>
       percentageUsedWithLeadTime: 0,
       usedHoursWithoutLeadTime: 0,
       percentageUsedWithoutLeadTime: 0,
+      usedHoursWithLeadTimeNoBuffer: 0,
+      percentageUsedWithLeadTimeNoBuffer: 0,
+      usedHoursWithoutLeadTimeNoBuffer: 0,
+      percentageUsedWithoutLeadTimeNoBuffer: 0,
       rawHours: 0,
       bufferedHours: 0,
       leadTimeHours: 0,
@@ -92,13 +100,15 @@ async function getClientWithTimeData(id: string): Promise<ClientTimeData | null>
     0
   );
 
-  // Use the exact same calculation logic as dashboard
+  // Calculate all combinations of buffer and lead time
   const usedHoursWithLeadTime = calculateBilledHours(
     totalDurationMinutes,
     cycleStart,
     cycleEnd,
     client.weekly_allocated_hours || 0,
-    LeadTimeStrategy.FIXED_PER_DAY
+    LeadTimeStrategy.FIXED_PER_DAY,
+    'monthly',
+    true // with buffer
   );
 
   const usedHoursWithoutLeadTime = calculateBilledHours(
@@ -106,11 +116,35 @@ async function getClientWithTimeData(id: string): Promise<ClientTimeData | null>
     cycleStart,
     cycleEnd,
     client.weekly_allocated_hours || 0,
-    LeadTimeStrategy.NONE
+    LeadTimeStrategy.NONE,
+    'monthly',
+    true // with buffer
+  );
+
+  const usedHoursWithLeadTimeNoBuffer = calculateBilledHours(
+    totalDurationMinutes,
+    cycleStart,
+    cycleEnd,
+    client.weekly_allocated_hours || 0,
+    LeadTimeStrategy.FIXED_PER_DAY,
+    'monthly',
+    false // without buffer
+  );
+
+  const usedHoursWithoutLeadTimeNoBuffer = calculateBilledHours(
+    totalDurationMinutes,
+    cycleStart,
+    cycleEnd,
+    client.weekly_allocated_hours || 0,
+    LeadTimeStrategy.NONE,
+    'monthly',
+    false // without buffer
   );
 
   const percentageUsedWithLeadTime = allocatedHours > 0 ? (usedHoursWithLeadTime / allocatedHours) * 100 : 0;
   const percentageUsedWithoutLeadTime = allocatedHours > 0 ? (usedHoursWithoutLeadTime / allocatedHours) * 100 : 0;
+  const percentageUsedWithLeadTimeNoBuffer = allocatedHours > 0 ? (usedHoursWithLeadTimeNoBuffer / allocatedHours) * 100 : 0;
+  const percentageUsedWithoutLeadTimeNoBuffer = allocatedHours > 0 ? (usedHoursWithoutLeadTimeNoBuffer / allocatedHours) * 100 : 0;
 
   // Calculation breakdown values - same as dashboard
   const rawHours = totalDurationMinutes / 60;
@@ -127,6 +161,10 @@ async function getClientWithTimeData(id: string): Promise<ClientTimeData | null>
     percentageUsedWithLeadTime,
     usedHoursWithoutLeadTime,
     percentageUsedWithoutLeadTime,
+    usedHoursWithLeadTimeNoBuffer,
+    percentageUsedWithLeadTimeNoBuffer,
+    usedHoursWithoutLeadTimeNoBuffer,
+    percentageUsedWithoutLeadTimeNoBuffer,
     rawHours,
     bufferedHours,
     leadTimeHours,

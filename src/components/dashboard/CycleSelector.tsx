@@ -18,7 +18,7 @@ import { addMonths } from 'date-fns/addMonths';
 import { subMonths } from 'date-fns/subMonths';
 
 interface CycleSelectorProps {
-  initialCycle?: 'current' | 'previous' | 'custom';
+  initialCycle?: 'current' | 'previous' | 'this-week' | 'last-week' | 'custom';
   initialStartDate?: string;
   initialEndDate?: string;
 }
@@ -32,7 +32,7 @@ export default function CycleSelector({
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const [cycle, setCycle] = useState<'current' | 'previous' | 'custom'>(initialCycle);
+  const [cycle, setCycle] = useState<'current' | 'previous' | 'this-week' | 'last-week' | 'custom'>(initialCycle);
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
     from: initialStartDate ? new Date(initialStartDate) : undefined,
     to: initialEndDate ? new Date(initialEndDate) : undefined,
@@ -75,7 +75,7 @@ export default function CycleSelector({
   };
 
   const handleCycleChange = (value: string) => {
-    const newCycle = value as 'current' | 'previous' | 'custom';
+    const newCycle = value as 'current' | 'previous' | 'this-week' | 'last-week' | 'custom';
     setCycle(newCycle);
 
     if (newCycle !== 'custom') {
@@ -99,7 +99,11 @@ export default function CycleSelector({
   // Display text for current selection
   const displayText = useMemo(() => {
     if (cycle !== 'custom') {
-      return cycle === 'current' ? 'Current Cycle' : 'Previous Cycle';
+      return cycle === 'current' ? 'Current Cycle' : 
+             cycle === 'previous' ? 'Previous Cycle' : 
+             cycle === 'this-week' ? 'This Week' :
+             cycle === 'last-week' ? 'Last Week' :
+             'Current Cycle';
     }
     // For custom, always show label, not range.
     return 'Custom Range';
@@ -124,6 +128,8 @@ export default function CycleSelector({
         <SelectContent>
           <SelectItem value="current">Current Cycle</SelectItem>
           <SelectItem value="previous">Previous Cycle</SelectItem>
+          <SelectItem value="this-week">This Week</SelectItem>
+          <SelectItem value="last-week">Last Week</SelectItem>
           <SelectItem value="custom">Custom Range</SelectItem>
         </SelectContent>
       </Select>

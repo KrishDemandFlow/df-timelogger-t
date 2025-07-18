@@ -31,7 +31,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <AuthProvider>
           <header className="border-b">
-            <div className="container max-w-8xl mx-auto flex h-16 items-center px-4">
+            <div className="container max-w-8xl mx-auto flex h-16 items-center px-2">
               <div className="flex items-center space-x-6">
                 <h1 className="text-xl font-bold">
                   <Link href="/" className="hover:text-primary transition-colors"><svg width="150" height="27" viewBox="0 0 161 27" fill="none" xmlns="http://www.w3.org/2000/svg">

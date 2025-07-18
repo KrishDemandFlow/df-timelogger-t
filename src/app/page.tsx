@@ -7,12 +7,12 @@ interface PageProps {
 }
 
 export default function HomePage({ searchParams }: PageProps) {
-  const cycle = typeof searchParams.cycle === 'string' ? (searchParams.cycle as 'current' | 'previous' | 'custom') : 'current';
+  const cycle = typeof searchParams.cycle === 'string' ? (searchParams.cycle as 'current' | 'previous' | 'this-week' | 'last-week' | 'custom') : 'current';
   const startDate = typeof searchParams.start === 'string' ? searchParams.start : undefined;
   const endDate = typeof searchParams.end === 'string' ? searchParams.end : undefined;
 
   return (
-    <div className="container max-w-8xl mx-auto p-4 space-y-6">
+    <div className="container max-w-8xl mx-auto p-4 px-2 space-y-6">
       {/* Header row removed; controls moved into dashboard */}
       <Suspense
         fallback={

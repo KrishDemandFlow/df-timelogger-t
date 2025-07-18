@@ -22,6 +22,10 @@ interface ClientTimeData extends Client {
   percentageUsedWithLeadTime: number;
   usedHoursWithoutLeadTime: number;
   percentageUsedWithoutLeadTime: number;
+  usedHoursWithLeadTimeNoBuffer: number;
+  percentageUsedWithLeadTimeNoBuffer: number;
+  usedHoursWithoutLeadTimeNoBuffer: number;
+  percentageUsedWithoutLeadTimeNoBuffer: number;
   rawHours: number;
   bufferedHours: number;
   leadTimeHours: number;
@@ -71,11 +75,18 @@ function formatDuration(minutes: number): string {
 }
 
 export default function ClientDetailsView({ client, recentLogs, usersMap }: ClientDetailsViewProps) {
-  // Default to WITHOUT lead time (as requested)
-  const [includeLeadTime, setIncludeLeadTime] = useState(false);
+  // Default to WITH lead time enabled and WITH buffer enabled
+  const [includeLeadTime, setIncludeLeadTime] = useState(true);
+  const [includeBuffer, setIncludeBuffer] = useState(true);
 
-  const usedHours = includeLeadTime ? client.usedHoursWithLeadTime : client.usedHoursWithoutLeadTime;
-  const percentageUsed = includeLeadTime ? client.percentageUsedWithLeadTime : client.percentageUsedWithoutLeadTime;
+  // Choose the appropriate calculation based on settings
+  const usedHours = includeLeadTime 
+    ? (includeBuffer ? client.usedHoursWithLeadTime : client.usedHoursWithLeadTimeNoBuffer)
+    : (includeBuffer ? client.usedHoursWithoutLeadTime : client.usedHoursWithoutLeadTimeNoBuffer);
+  
+  const percentageUsed = includeLeadTime 
+    ? (includeBuffer ? client.percentageUsedWithLeadTime : client.percentageUsedWithLeadTimeNoBuffer)
+    : (includeBuffer ? client.percentageUsedWithoutLeadTime : client.percentageUsedWithoutLeadTimeNoBuffer);
 
   const getUsageColor = (percentage: number) => {
     if (percentage > 100) return 'bg-red-500';
@@ -112,22 +123,38 @@ export default function ClientDetailsView({ client, recentLogs, usersMap }: Clie
         </Button>
       </div>
 
-      {/* Lead Time Toggle */}
+      {/* Calculation Settings */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex items-center space-x-2">
-            <Switch
-              id="include-lead-time"
-              checked={includeLeadTime}
-              onCheckedChange={setIncludeLeadTime}
-            />
-            <Label htmlFor="include-lead-time" className="text-sm font-medium">
-              Include Project Lead Time in calculations
-            </Label>
+          <div className="space-y-4">
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="include-buffer"
+                checked={includeBuffer}
+                onCheckedChange={setIncludeBuffer}
+              />
+              <Label htmlFor="include-buffer" className="text-sm font-medium">
+                Include Buffer (10%) in calculations
+              </Label>
+            </div>
+            <p className="text-xs text-gray-500">
+              Buffer adds 10% to execution time to account for untracked work like Slack, QA, and meetings
+            </p>
+            
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="include-lead-time"
+                checked={includeLeadTime}
+                onCheckedChange={setIncludeLeadTime}
+              />
+              <Label htmlFor="include-lead-time" className="text-sm font-medium">
+                Include Project Lead Time in calculations
+              </Label>
+            </div>
+            <p className="text-xs text-gray-500">
+              Project Lead Time adds 2 hours per allocated work day for project management and client communication
+            </p>
           </div>
-          <p className="text-xs text-gray-500 mt-1">
-            Project Lead Time adds 2 hours per allocated work day for project management and client communication
-          </p>
         </CardContent>
       </Card>
 
@@ -211,12 +238,22 @@ export default function ClientDetailsView({ client, recentLogs, usersMap }: Clie
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-500">Buffer (10%)</p>
-                <p className="text-lg font-semibold">{formatHoursMinutes(client.bufferedHours - client.rawHours)}</p>
+                <p className="text-lg font-semibold">
+                  {includeBuffer 
+                    ? formatHoursMinutes(client.bufferedHours - client.rawHours)
+                    : formatHoursMinutes(0)
+                  }
+                </p>
               </div>
               {includeLeadTime && (
                 <div>
                   <p className="text-sm font-medium text-gray-500">Project Lead Time</p>
                   <p className="text-lg font-semibold">{formatHoursMinutes(client.leadTimeHours)}</p>
+                  <div className="text-xs text-gray-500 mt-1 pl-2 border-l-2 border-gray-200">
+                    {/* Always show monthly calculation for client details view */}
+                    <div>{((client.weekly_allocated_hours || 0) / 8 * 4.33).toFixed(1)} days × 2h/day</div>
+                    <div className="text-gray-400">({((client.weekly_allocated_hours || 0) / 8).toFixed(1)} days/week × 4.33 weeks)</div>
+                  </div>
                 </div>
               )}
             </div>
