@@ -32,6 +32,13 @@ interface ClientTimeData extends Client {
   allocatedDaysInCycle: number;
   cycleStart: string;
   cycleEnd: string;
+  // New PLT-specific fields
+  progressivePLTHours: number;
+  fullPLTHours: number;
+  pltDaysElapsed: number;
+  pltTotalDays: number;
+  isPLTProgressive: boolean;
+  cycleType: 'current' | 'past' | 'future';
 }
 
 interface ClientDetailsViewProps {
@@ -250,9 +257,33 @@ export default function ClientDetailsView({ client, recentLogs, usersMap }: Clie
                   <p className="text-sm font-medium text-gray-500">Project Lead Time</p>
                   <p className="text-lg font-semibold">{formatHoursMinutes(client.leadTimeHours)}</p>
                   <div className="text-xs text-gray-500 mt-1 pl-2 border-l-2 border-gray-200">
-                    {/* Always show monthly calculation for client details view */}
-                    <div>{((client.weekly_allocated_hours || 0) / 8 * 4.33).toFixed(1)} days × 2h/day</div>
-                    <div className="text-gray-400">({((client.weekly_allocated_hours || 0) / 8).toFixed(1)} days/week × 4.33 weeks)</div>
+                    {client.isPLTProgressive ? (
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1">
+                          <div className="h-1.5 w-1.5 rounded-full bg-green-500"></div>
+                          <span className="font-medium text-green-600">Progressive PLT</span>
+                        </div>
+                        <div>
+                          {client.pltDaysElapsed} of {client.pltTotalDays} days elapsed
+                        </div>
+                        <div className="text-gray-400">
+                          {client.cycleType === 'current' 
+                            ? `Showing ${client.pltDaysElapsed} days of PLT` 
+                            : client.cycleType === 'past' 
+                            ? 'Full PLT (past cycle)' 
+                            : 'No PLT (future cycle)'}
+                        </div>
+                        <div className="text-gray-400 text-xs">
+                          Full PLT for the current cycle would be: {formatHoursMinutes(client.fullPLTHours)}
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        {/* Always show monthly calculation for client details view */}
+                        <div>{((client.weekly_allocated_hours || 0) / 8 * 4.33).toFixed(1)} days × 2h/day</div>
+                        <div className="text-gray-400">({((client.weekly_allocated_hours || 0) / 8).toFixed(1)} days/week × 4.33 weeks)</div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

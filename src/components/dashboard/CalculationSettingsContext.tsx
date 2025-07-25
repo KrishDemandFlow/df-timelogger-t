@@ -7,6 +7,8 @@ interface CalculationSettingsContextValue {
   setIncludeLeadTime: (value: boolean) => void;
   includeBuffer: boolean;
   setIncludeBuffer: (value: boolean) => void;
+  useProgressivePLT: boolean;
+  setUseProgressivePLT: (value: boolean) => void;
 }
 
 const CalculationSettingsContext = createContext<CalculationSettingsContextValue | undefined>(undefined);
@@ -14,9 +16,17 @@ const CalculationSettingsContext = createContext<CalculationSettingsContextValue
 export function CalculationSettingsProvider({ children }: { children: ReactNode }) {
   const [includeLeadTime, setIncludeLeadTime] = useState(true);
   const [includeBuffer, setIncludeBuffer] = useState(true);
+  const [useProgressivePLT, setUseProgressivePLT] = useState(true);
 
   return (
-    <CalculationSettingsContext.Provider value={{ includeLeadTime, setIncludeLeadTime, includeBuffer, setIncludeBuffer }}>
+    <CalculationSettingsContext.Provider value={{ 
+      includeLeadTime, 
+      setIncludeLeadTime, 
+      includeBuffer, 
+      setIncludeBuffer,
+      useProgressivePLT,
+      setUseProgressivePLT
+    }}>
       {children}
     </CalculationSettingsContext.Provider>
   );

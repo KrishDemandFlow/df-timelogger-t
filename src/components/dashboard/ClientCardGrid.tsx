@@ -34,6 +34,13 @@ export type ClientTimeData = Database['public']['Tables']['Clients']['Row'] & {
   allocatedDaysInCycle: number;
   cycleStart: string;
   cycleEnd: string;
+  // New PLT-specific fields
+  progressivePLTHours: number;
+  fullPLTHours: number;
+  pltDaysElapsed: number;
+  pltTotalDays: number;
+  isPLTProgressive: boolean;
+  cycleType: 'current' | 'past' | 'future';
 };
 
 function formatHoursMinutes(decimalHours: number): string {
@@ -218,16 +225,40 @@ function ClientCard({ client, usersMap, includeLeadTime, includeBuffer, isPartOf
                                                     <span className="font-medium text-gray-900">{formatHoursMinutes(client.leadTimeHours)}</span>
                                                 </div>
                                                 <div className="text-xs text-gray-500 pl-2 border-l-2 border-gray-200">
-                                                    {cycle === 'this-week' || cycle === 'last-week' ? (
-                                                        <>
-                                                            <div>{((client.weekly_allocated_hours || 0) / 8).toFixed(1)} days × 2h/day</div>
-                                                            <div className="text-gray-400">({client.weekly_allocated_hours || 0}h ÷ 8h/day = {((client.weekly_allocated_hours || 0) / 8).toFixed(1)} days)</div>
-                                                        </>
+                                                    {client.isPLTProgressive ? (
+                                                        <div className="space-y-1">
+                                                            <div className="flex items-center gap-1">
+                                                                <div className="h-1.5 w-1.5 rounded-full bg-green-500"></div>
+                                                                <span className="font-medium text-green-600">Progressive PLT</span> <div>
+                                                                ({client.pltDaysElapsed} of {client.pltTotalDays} days elapsed)
+                                                            </div>
+                                                            </div>
+                                                            
+                                                            <div className="text-gray-400">
+                                                                {client.cycleType === 'current' 
+                                                                    ? `Showing ${client.pltDaysElapsed} days of PLT` 
+                                                                    : client.cycleType === 'past' 
+                                                                    ? 'Full PLT (past cycle)' 
+                                                                    : 'No PLT (future cycle)'}
+                                                            </div>
+                                                            {/* <div className="text-gray-400 text-xs">
+                                                                Full PLT would be: {formatHoursMinutes(client.fullPLTHours)}
+                                                            </div> */}
+                                                        </div>
                                                     ) : (
-                                                        <>
-                                                            <div>{((client.weekly_allocated_hours || 0) / 8 * 4.33).toFixed(1)} days × 2h/day</div>
-                                                            <div className="text-gray-400">({((client.weekly_allocated_hours || 0) / 8).toFixed(1)} days/week × 4.33 weeks)</div>
-                                                        </>
+                                                        <div>
+                                                            {cycle === 'this-week' || cycle === 'last-week' ? (
+                                                                <>
+                                                                    <div>{((client.weekly_allocated_hours || 0) / 8).toFixed(1)} days × 2h/day</div>
+                                                                    <div className="text-gray-400">({client.weekly_allocated_hours || 0}h ÷ 8h/day = {((client.weekly_allocated_hours || 0) / 8).toFixed(1)} days)</div>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <div>{((client.weekly_allocated_hours || 0) / 8 * 4.33).toFixed(1)} days × 2h/day</div>
+                                                                    <div className="text-gray-400">({((client.weekly_allocated_hours || 0) / 8).toFixed(1)} days/week × 4.33 weeks)</div>
+                                                                </>
+                                                            )}
+                                                        </div>
                                                     )}
                                                 </div>
                                             </div>
@@ -308,8 +339,10 @@ function ClientCard({ client, usersMap, includeLeadTime, includeBuffer, isPartOf
                               usedHoursVal.toFixed(2),
                               client.allocatedHours.toFixed(2),
                               utilisedPct.toFixed(1),
-                              includeLeadTime && includeBuffer ? '+10% buffer, +2h/day lead time' : 
-                              includeLeadTime && !includeBuffer ? '+2h/day lead time only' :
+                              includeLeadTime && includeBuffer ? 
+                                (client.isPLTProgressive ? '+10% buffer, +progressive PLT' : '+10% buffer, +2h/day lead time') : 
+                              includeLeadTime && !includeBuffer ? 
+                                (client.isPLTProgressive ? '+progressive PLT only' : '+2h/day lead time only') :
                               !includeLeadTime && includeBuffer ? '+10% buffer only' : 
                               'Raw execution time only',
                               (client.allocatedHours - usedHoursVal).toFixed(2),

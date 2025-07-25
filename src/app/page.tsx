@@ -7,9 +7,12 @@ interface PageProps {
 }
 
 export default function HomePage({ searchParams }: PageProps) {
-  const cycle = typeof searchParams.cycle === 'string' ? (searchParams.cycle as 'current' | 'previous' | 'this-week' | 'last-week' | 'custom') : 'current';
-  const startDate = typeof searchParams.start === 'string' ? searchParams.start : undefined;
-  const endDate = typeof searchParams.end === 'string' ? searchParams.end : undefined;
+  // Convert array values to strings and fix parameter names
+  const processedSearchParams = {
+    cycle: typeof searchParams.cycle === 'string' ? searchParams.cycle : undefined,
+    customStart: typeof searchParams.customStart === 'string' ? searchParams.customStart : undefined,
+    customEnd: typeof searchParams.customEnd === 'string' ? searchParams.customEnd : undefined,
+  };
 
   return (
     <div className="container max-w-8xl mx-auto p-4 px-2 space-y-6">
@@ -22,7 +25,7 @@ export default function HomePage({ searchParams }: PageProps) {
           </div>
         }
       >
-        <TimeTrackingDashboard cycle={cycle} startDate={startDate} endDate={endDate} />
+        <TimeTrackingDashboard searchParams={processedSearchParams} />
       </Suspense>
     </div>
   );

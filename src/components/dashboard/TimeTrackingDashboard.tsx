@@ -1,43 +1,19 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { getBillingCycleDates, getBillingCycleHours, getWeeklyDates, getLastWeekDates, getWeeklyHours } from '@/lib/utils/billing-cycle';
-import { calculateBilledHours, LeadTimeStrategy } from '@/lib/utils/time-calculations';
 import SyncButton from '@/components/sync/SyncButton';
 import { CalculationSettingsProvider } from '@/components/dashboard/CalculationSettingsContext';
 import type { Database } from '@/lib/supabase/database.types';
-import ClientCardGrid, { type ClientTimeData as ClientCardData } from './ClientCardGrid';
+import DashboardClient from './DashboardClient';
+import { ClientTimeDataRaw } from './ClientCalculations';
 import { subMonths } from 'date-fns/subMonths';
 
 type Client = Database['public']['Tables']['Clients']['Row'];
 type TimeLog = Database['public']['Tables']['TimeLogs']['Row'];
 type ClickUpUser = { clickup_user_id: string; username: string };
 
-// Extend the interface to include all necessary data for the client-side component
-interface ClientTimeData extends Client {
-  allocatedHours: number;
-  timeLogs: TimeLog[];
-  usedHoursWithLeadTime: number;
-  percentageUsedWithLeadTime: number;
-  usedHoursWithoutLeadTime: number;
-  percentageUsedWithoutLeadTime: number;
-  usedHoursWithLeadTimeNoBuffer: number;
-  percentageUsedWithLeadTimeNoBuffer: number;
-  usedHoursWithoutLeadTimeNoBuffer: number;
-  percentageUsedWithoutLeadTimeNoBuffer: number;
-  rawHours: number;
-  bufferedHours: number;
-  leadTimeHours: number;
-  allocatedDaysInCycle: number;
-  cycleStart: string;
-  cycleEnd: string;
-}
-
-export type EnrichedClientTimeData = ClientTimeData & {
-    usersMap: Record<string, string>;
-};
-
 type CycleOption = 'current' | 'previous' | 'this-week' | 'last-week' | 'custom';
 
-async function getClientTimeData(cycle: CycleOption, customStart?: string, customEnd?: string): Promise<{ clientTimeData: ClientTimeData[], usersMap: Record<string, string> }> {
+async function getRawClientData(cycle: CycleOption, customStart?: string, customEnd?: string): Promise<{ rawClientData: ClientTimeDataRaw[], usersMap: Record<string, string> }> {
   const supabase = createSupabaseServerClient();
 
   // Get all clients and users in parallel
@@ -49,21 +25,25 @@ async function getClientTimeData(cycle: CycleOption, customStart?: string, custo
     supabase.from('ClickUpUsers').select('clickup_user_id, username')
   ]);
 
-  if (clientsError || !clients) {
+  if (clientsError) {
     console.error('Error fetching clients:', clientsError);
-    return { clientTimeData: [], usersMap: {} };
-  }
-  
-  const usersMap: Record<string, string> = {};
-  if (clickupUsers) {
-    for (const user of clickupUsers) {
-        if (user.clickup_user_id && user.username) {
-            usersMap[user.clickup_user_id] = user.username;
-        }
-    }
+    return { rawClientData: [], usersMap: {} };
   }
 
-  const clientTimeData: ClientTimeData[] = [];
+  if (usersError) {
+    console.error('Error fetching users:', usersError);
+    return { rawClientData: [], usersMap: {} };
+  }
+
+  // Create users map
+  const usersMap: Record<string, string> = {};
+  (clickupUsers || []).forEach((user: ClickUpUser) => {
+    usersMap[user.clickup_user_id] = user.username;
+  });
+
+  const rawClientData: ClientTimeDataRaw[] = [];
+
+  if (!clients) return { rawClientData, usersMap };
 
   for (const client of clients) {
     if (!client.billing_cycle_start_day || !client.weekly_allocated_hours) {
@@ -127,126 +107,53 @@ async function getClientTimeData(cycle: CycleOption, customStart?: string, custo
       continue;
     }
 
-    const totalDurationMinutes = (timeLogs || []).reduce(
-      (sum, log) => sum + log.duration_minutes, 
-      0
-    );
-
-    const cycleTypeParam = cycle === 'this-week' || cycle === 'last-week' ? 'weekly' : 'monthly';
-
-    // Calculate all combinations of buffer and lead time
-    const usedHoursWithLeadTime = calculateBilledHours(
-      totalDurationMinutes,
-      cycleStart,
-      cycleEnd,
-      client.weekly_allocated_hours || 0,
-      LeadTimeStrategy.FIXED_PER_DAY,
-      cycleTypeParam,
-      true // with buffer
-    );
-
-    const usedHoursWithoutLeadTime = calculateBilledHours(
-      totalDurationMinutes,
-      cycleStart,
-      cycleEnd,
-      client.weekly_allocated_hours || 0,
-      LeadTimeStrategy.NONE,
-      cycleTypeParam,
-      true // with buffer
-    );
-
-    const usedHoursWithLeadTimeNoBuffer = calculateBilledHours(
-      totalDurationMinutes,
-      cycleStart,
-      cycleEnd,
-      client.weekly_allocated_hours || 0,
-      LeadTimeStrategy.FIXED_PER_DAY,
-      cycleTypeParam,
-      false // without buffer
-    );
-
-    const usedHoursWithoutLeadTimeNoBuffer = calculateBilledHours(
-      totalDurationMinutes,
-      cycleStart,
-      cycleEnd,
-      client.weekly_allocated_hours || 0,
-      LeadTimeStrategy.NONE,
-      cycleTypeParam,
-      false // without buffer
-    );
-
-    const percentageUsedWithLeadTime = allocatedHours > 0 ? (usedHoursWithLeadTime / allocatedHours) * 100 : 0;
-    const percentageUsedWithoutLeadTime = allocatedHours > 0 ? (usedHoursWithoutLeadTime / allocatedHours) * 100 : 0;
-    const percentageUsedWithLeadTimeNoBuffer = allocatedHours > 0 ? (usedHoursWithLeadTimeNoBuffer / allocatedHours) * 100 : 0;
-    const percentageUsedWithoutLeadTimeNoBuffer = allocatedHours > 0 ? (usedHoursWithoutLeadTimeNoBuffer / allocatedHours) * 100 : 0;
-
-    // Calculation breakdown values
-    const rawHours = totalDurationMinutes / 60;
-    const bufferedHours = rawHours * 1.1;
-    const allocatedDaysPerWeek = (client.weekly_allocated_hours || 0) / 8;
-    
-    // For weekly view, allocatedDaysInCycle should be for one week, not the full billing cycle
-    const allocatedDaysInCycle = cycle === 'this-week' || cycle === 'last-week' ? allocatedDaysPerWeek : allocatedDaysPerWeek * 4.33;
-    const leadTimeHours = allocatedDaysInCycle * 2;
-
-    clientTimeData.push({
+    rawClientData.push({
       ...client,
       allocatedHours,
       timeLogs: timeLogs || [],
-      usedHoursWithLeadTime,
-      percentageUsedWithLeadTime,
-      usedHoursWithoutLeadTime,
-      percentageUsedWithoutLeadTime,
-      usedHoursWithLeadTimeNoBuffer,
-      percentageUsedWithLeadTimeNoBuffer,
-      usedHoursWithoutLeadTimeNoBuffer,
-      percentageUsedWithoutLeadTimeNoBuffer,
-      rawHours,
-      bufferedHours,
-      leadTimeHours,
-      allocatedDaysInCycle,
       cycleStart: cycleStart.toISOString(),
       cycleEnd: cycleEnd.toISOString(),
     });
   }
 
-  return { clientTimeData, usersMap };
+  return { rawClientData, usersMap };
 }
 
-export default async function TimeTrackingDashboard({
-  cycle = 'current',
-  startDate,
-  endDate,
-}: {
-  cycle?: CycleOption;
-  startDate?: string;
-  endDate?: string;
-}) {
-  const { clientTimeData, usersMap } = await getClientTimeData(cycle, startDate, endDate);
+interface Props {
+  searchParams: {
+    cycle?: string;
+    customStart?: string;
+    customEnd?: string;
+  };
+}
 
-  if (clientTimeData.length === 0) {
-    return (
-      <div className="text-center py-8">
-        <p className="text-gray-600">
-          No client time data available. Add clients and sync ClickUp data to get started.
-        </p>
-      </div>
-    );
-  }
+export default async function TimeTrackingDashboard({ searchParams }: Props) {
+  const cycle = (searchParams.cycle || 'current') as CycleOption;
+  const { customStart, customEnd } = searchParams;
+
+  const { rawClientData, usersMap } = await getRawClientData(cycle, customStart, customEnd);
 
   return (
     <CalculationSettingsProvider>
-    <div className="space-y-6">
-      {/* Header removed as per new design */}
+      <div className="space-y-0">
+        <div className="flex items-center justify-between">
+          {/* <div>
+            <h1 className="text-3xl font-bold tracking-tight">Time Tracking Dashboard</h1>
+            <p className="text-muted-foreground">
+              Monitor retainer hours usage across all clients
+            </p>
+          </div> */}
+          {/* <SyncButton /> */}
+        </div>
 
-      <ClientCardGrid
-        clientTimeData={clientTimeData as unknown as ClientCardData[]}
-        usersMap={usersMap}
-        cycle={cycle}
-        startDate={startDate}
-        endDate={endDate}
-      />
-    </div>
+        <DashboardClient 
+          rawClientData={rawClientData}
+          usersMap={usersMap}
+          initialCycle={cycle}
+          initialStartDate={customStart}
+          initialEndDate={customEnd}
+        />
+      </div>
     </CalculationSettingsProvider>
   );
 } 

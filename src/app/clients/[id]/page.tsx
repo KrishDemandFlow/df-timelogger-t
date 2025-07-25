@@ -1,7 +1,8 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
 import { getBillingCycleDates, getBillingCycleHours } from '@/lib/utils/billing-cycle';
-import { calculateBilledHours, LeadTimeStrategy } from '@/lib/utils/time-calculations';
+import { calculateBilledHours, LeadTimeStrategy, calculateProgressivePLT, determineCycleType } from '@/lib/utils/time-calculations';
+import { getPLTConfig } from '@/lib/config/plt-settings';
 import type { Database } from '@/lib/supabase/database.types';
 import ClientDetailsView from './ClientDetailsView';
 
@@ -32,6 +33,13 @@ interface ClientTimeData extends Client {
   allocatedDaysInCycle: number;
   cycleStart: string;
   cycleEnd: string;
+  // New PLT-specific fields
+  progressivePLTHours: number;
+  fullPLTHours: number;
+  pltDaysElapsed: number;
+  pltTotalDays: number;
+  isPLTProgressive: boolean;
+  cycleType: 'current' | 'past' | 'future';
 }
 
 async function getClientWithTimeData(id: string): Promise<ClientTimeData | null> {
@@ -100,15 +108,44 @@ async function getClientWithTimeData(id: string): Promise<ClientTimeData | null>
     0
   );
 
-  // Calculate all combinations of buffer and lead time
-  const usedHoursWithLeadTime = calculateBilledHours(
-    totalDurationMinutes,
+  // Get PLT configuration and determine cycle type
+  const pltConfig = getPLTConfig();
+  const today = new Date();
+  const cycleTypeResult = determineCycleType(cycleStart, cycleEnd, today);
+  const isPLTProgressive = cycleTypeResult === 'current' && pltConfig.enabled;
+
+  // Calculate progressive and full PLT for comparison
+  const progressivePLTHours = calculateProgressivePLT(
+    cycleStart,
+    cycleEnd,
+    client.weekly_allocated_hours || 0,
+    pltConfig,
+    today,
+    'monthly'
+  );
+  
+  const fullPLTHours = calculateBilledHours(
+    0, // No execution time for pure PLT calculation
     cycleStart,
     cycleEnd,
     client.weekly_allocated_hours || 0,
     LeadTimeStrategy.FIXED_PER_DAY,
     'monthly',
-    true // with buffer
+    false // No buffer for pure PLT
+  );
+
+  // Calculate all combinations of buffer and lead time using progressive PLT by default
+  const usedHoursWithLeadTime = calculateBilledHours(
+    totalDurationMinutes,
+    cycleStart,
+    cycleEnd,
+    client.weekly_allocated_hours || 0,
+    LeadTimeStrategy.PROGRESSIVE,
+    'monthly',
+    true, // with buffer
+    true, // use progressive PLT
+    today,
+    pltConfig
   );
 
   const usedHoursWithoutLeadTime = calculateBilledHours(
@@ -126,9 +163,12 @@ async function getClientWithTimeData(id: string): Promise<ClientTimeData | null>
     cycleStart,
     cycleEnd,
     client.weekly_allocated_hours || 0,
-    LeadTimeStrategy.FIXED_PER_DAY,
+    LeadTimeStrategy.PROGRESSIVE,
     'monthly',
-    false // without buffer
+    false, // without buffer
+    true, // use progressive PLT
+    today,
+    pltConfig
   );
 
   const usedHoursWithoutLeadTimeNoBuffer = calculateBilledHours(
@@ -151,7 +191,13 @@ async function getClientWithTimeData(id: string): Promise<ClientTimeData | null>
   const bufferedHours = rawHours * 1.1;
   const allocatedDaysPerWeek = (client.weekly_allocated_hours || 0) / 8;
   const allocatedDaysInCycle = allocatedDaysPerWeek * 4.33;
-  const leadTimeHours = allocatedDaysInCycle * 2;
+  
+  // Use progressive PLT hours for display, fallback to traditional calculation for backward compatibility
+  const leadTimeHours = isPLTProgressive ? progressivePLTHours : fullPLTHours;
+
+  // Calculate PLT timing information
+  const pltDaysElapsed = Math.max(0, Math.floor((today.getTime() - cycleStart.getTime()) / (1000 * 60 * 60 * 24)));
+  const pltTotalDays = Math.floor((cycleEnd.getTime() - cycleStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
   return {
     ...client,
@@ -171,6 +217,13 @@ async function getClientWithTimeData(id: string): Promise<ClientTimeData | null>
     allocatedDaysInCycle,
     cycleStart: cycleStart.toISOString(),
     cycleEnd: cycleEnd.toISOString(),
+    // New PLT-specific fields
+    progressivePLTHours,
+    fullPLTHours,
+    pltDaysElapsed,
+    pltTotalDays,
+    isPLTProgressive,
+    cycleType: cycleTypeResult
   };
 }
 
