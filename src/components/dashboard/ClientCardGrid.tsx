@@ -369,25 +369,17 @@ function ClientCard({ client, usersMap, includeLeadTime, includeBuffer, isPartOf
                             const usedHoursVal = includeLeadTime 
                               ? (includeBuffer ? client.usedHoursWithLeadTime : client.usedHoursWithLeadTimeNoBuffer)
                               : (includeBuffer ? client.usedHoursWithoutLeadTime : client.usedHoursWithoutLeadTimeNoBuffer);
-                            const utilisedPct = (usedHoursVal / client.allocatedHours) * 100;
                             
-                            // Generate cycle-aware heading
-                            let heading;
-                            if (cycle === 'this-week') {
-                              heading = `${(client.name || '').trim()} - This Week Summary (${format(new Date(client.cycleStart), 'MMM d')} - ${format(new Date(client.cycleEnd), 'MMM d, yyyy')})`;
-                            } else if (cycle === 'last-week') {
-                              heading = `${(client.name || '').trim()} - Last Week Summary (${format(new Date(client.cycleStart), 'MMM d')} - ${format(new Date(client.cycleEnd), 'MMM d, yyyy')})`;
-                            } else if (cycle === 'custom') {
-                              heading = `${(client.name || '').trim()} - Custom Range (${format(new Date(client.cycleStart), 'yyyy-MM-dd')} → ${format(new Date(client.cycleEnd), 'yyyy-MM-dd')})`;
-                            } else if (cycle === 'previous') {
-                              heading = `${(client.name || '').trim()} - Previous Cycle (${format(new Date(client.cycleStart), 'MMMM yyyy')})`;
-                            } else {
-                              heading = `${(client.name || '').trim()} - Current Cycle (${format(new Date(client.cycleStart), 'MMMM yyyy')})`;
-                            }
-
-                            const dateLine = `- Period: ${format(new Date(client.cycleStart), 'yyyy-MM-dd')} to ${format(new Date(client.cycleEnd), 'yyyy-MM-dd')}`;
-                            const cycleTypeLine = `- Cycle Type: ${cycle === 'this-week' ? 'This Week' : cycle === 'last-week' ? 'Last Week' : cycle === 'custom' ? 'Custom Range' : cycle === 'previous' ? 'Previous Billing Cycle' : 'Current Billing Cycle'}`;
-                            const md = `## ${heading}\n${dateLine}\n${cycleTypeLine}\n- Total hours used: ${formatHoursMinutes(usedHoursVal)}\n- Total hours allocated: ${formatHoursMinutes(client.allocatedHours)}\n- Utilisation: ${utilisedPct.toFixed(1)}%`;
+                            // Calculate remaining hours
+                            const remainingHours = Math.max(0, client.allocatedHours - usedHoursVal);
+                            
+                            // Format date range
+                            const startDate = format(new Date(client.cycleStart), 'MMMM d');
+                            const endDate = format(new Date(client.cycleEnd), 'MMM d');
+                            
+                            // Generate standardized Time Update message
+                            const md = `📊 **Time Update (${startDate} - ${endDate}):** ${formatHoursMinutes(usedHoursVal)} used / ${formatHoursMinutes(client.allocatedHours)} total | ${formatHoursMinutes(remainingHours)} remaining`;
+                            
                             navigator.clipboard.writeText(md).then(() => {
                               setCopied(true);
                               setTimeout(() => setCopied(false), 2000);
